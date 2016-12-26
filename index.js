@@ -181,28 +181,28 @@ module.exports = function(homebridge){
 		}.bind(this));
 	},
   
-  getPowerState: function(callback) {
-	if (!this.status_url) {
-		this.log.warn("Ignoring request; No status url defined.");
-		callback(new Error("No status url defined."));
-		return;
-	}
+    getPowerState: function(callback) {
+		if (!this.status_url) {
+			this.log.warn("Ignoring request; No status url defined.");
+			callback(new Error("No status url defined."));
+			return;
+		}
 	
-	var url = this.status_url;
-	this.log("Getting power state");
-	
-	this.httpRequest(url, "", "GET", this.username, this.password, this.sendimmediately, function(error, response, responseBody) {
-	if (error) {
-		this.log('HTTP get power function failed: %s', error.message);
-		callback(error);
-	} else {
-		var binaryState = parseInt(responseBody);
-		var powerOn = binaryState > 0;
-		this.log("Power state is currently %s", binaryState);
-		callback(null, powerOn);
-	}
-	}.bind(this));
-  },
+		var url = this.status_url;
+		this.log("Getting power state");
+
+		this.httpRequest(url, "", "GET", this.username, this.password, this.sendimmediately, function(error, response, responseBody) {
+		if (error) {
+			this.log('HTTP get power function failed: %s', error.message);
+			callback(error);
+		} else {
+			var binaryState = parseInt(responseBody);
+			var powerOn = binaryState > 0;
+			this.log("Power state is currently %s", binaryState);
+			callback(null, powerOn);
+		}
+		}.bind(this));
+	},
 
 	getBrightness: function(callback) {
 		if (!this.brightnesslvl_url) {
@@ -261,7 +261,7 @@ module.exports = function(homebridge){
 		// you can OPTIONALLY create an information service if you wish to override
 		// the default values for things like serial number, model, etc.
 		var informationService = new Service.AccessoryInformation();
-	
+
 		informationService
 		.setCharacteristic(Characteristic.Manufacturer, "HTTP Manufacturer")
 		.setCharacteristic(Characteristic.Model, "HTTP Model")
@@ -328,12 +328,6 @@ module.exports = function(homebridge){
 			return [informationService, this.lightbulbService];
 			break;		
 		case "Temperature":
-			this.informationService = new Service.AccessoryInformation();
-			this.informationService
-			.setCharacteristic(Characteristic.Manufacturer, this.manufacturer)
-			.setCharacteristic(Characteristic.Model, this.model)
-			.setCharacteristic(Characteristic.SerialNumber, this.serial);
-
 			this.temperatureService = new Service.TemperatureSensor(this.name);
 			this.temperatureService
 				.getCharacteristic(Characteristic.CurrentTemperature)
@@ -342,7 +336,7 @@ module.exports = function(homebridge){
 					 minValue: this.minTemperature,
 					 maxValue: this.maxTemperature
 				});
-			return [this.informationService, this.temperatureService];
+			return [this.temperatureService];
 
 		}
 	}
