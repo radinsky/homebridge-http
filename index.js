@@ -47,7 +47,7 @@ module.exports = function(homebridge){
 					if (error) {
 						that.log('HTTP get power function failed: %s', error.message);
 						callback(error);
-					} else {               				    
+					} else {
 						done(null, body);
 					}
 				})
@@ -271,14 +271,14 @@ module.exports = function(homebridge){
 		case "Switch": 
 			this.switchService = new Service.Switch(this.name);
 			switch (this.switchHandling) {	
-				//Power Polling			
-				case "yes":					
+				//Power Polling
+				case "yes":
 					this.switchService
 					.getCharacteristic(Characteristic.On)
 					.on('get', this.getPowerState.bind(this))
-					.on('set', this.setPowerState.bind(this));						
+					.on('set', this.setPowerState.bind(this));
 					break;
-				case "realtime":				
+				case "realtime":
 					this.switchService
 					.getCharacteristic(Characteristic.On)
 					.on('get', function(callback) {callback(null, that.state)})
@@ -287,11 +287,11 @@ module.exports = function(homebridge){
 				default	:	
 					this.switchService
 					.getCharacteristic(Characteristic.On)	
-					.on('set', this.setPowerState.bind(this));					
+					.on('set', this.setPowerState.bind(this));
 					break;}
 					return [this.switchService];
 		case "Light":	
-			this.lightbulbService = new Service.Lightbulb(this.name);			
+			this.lightbulbService = new Service.Lightbulb(this.name);
 			switch (this.switchHandling) {
 			//Power Polling
 			case "yes" :
@@ -322,11 +322,12 @@ module.exports = function(homebridge){
 				this.lightbulbService
 				.addCharacteristic(new Characteristic.Brightness())
 				.on('get', this.getBrightness.bind(this))
-				.on('set', this.setBrightness.bind(this));							
+				.on('set', this.setBrightness.bind(this));
 			}
 	
 			return [informationService, this.lightbulbService];
 			break;		
+
 		case "Temperature":
 			this.temperatureService = new Service.TemperatureSensor(this.name);
 			this.temperatureService
@@ -337,17 +338,18 @@ module.exports = function(homebridge){
 					 maxValue: this.maxTemperature
 				});
 			return [this.temperatureService];
+
 		case "Fan": 
 			this.fanService = new Service.Fan(this.name);
 			switch (this.switchHandling) {	
-				//Power Polling			
-				case "yes":					
+				//Power Polling
+				case "yes":
 					this.fanService
 					.getCharacteristic(Characteristic.On)
 					.on('get', this.getPowerState.bind(this))
-					.on('set', this.setPowerState.bind(this));						
+					.on('set', this.setPowerState.bind(this));
 					break;
-				case "realtime":				
+				case "realtime":
 					this.fanService
 					.getCharacteristic(Characteristic.On)
 					.on('get', function(callback) {callback(null, that.state)})
@@ -356,9 +358,32 @@ module.exports = function(homebridge){
 				default	:	
 					this.fanService
 					.getCharacteristic(Characteristic.On)	
-					.on('set', this.setPowerState.bind(this));					
+					.on('set', this.setPowerState.bind(this));
 					break;}
 					return [this.fanService];
+
+		case "Outlet": 
+			this.outletService = new Service.Outlet(this.name);
+			switch (this.switchHandling) {	
+				//Power Polling
+				case "yes":
+					this.outletService
+					.getCharacteristic(Characteristic.On)
+					.on('get', this.getPowerState.bind(this))
+					.on('set', this.setPowerState.bind(this));
+					break;
+				case "realtime":
+					this.outletService
+					.getCharacteristic(Characteristic.On)
+					.on('get', function(callback) {callback(null, that.state)})
+					.on('set', this.setPowerState.bind(this));
+					break;
+				default	:
+					this.outletService
+					.getCharacteristic(Characteristic.On)	
+					.on('set', this.setPowerState.bind(this));
+					break;}
+					return [this.outletService];
 
 		}
 	}
