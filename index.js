@@ -337,6 +337,28 @@ module.exports = function(homebridge){
 					 maxValue: this.maxTemperature
 				});
 			return [this.temperatureService];
+		case "Fan": 
+			this.fanService = new Service.Fan(this.name);
+			switch (this.switchHandling) {	
+				//Power Polling			
+				case "yes":					
+					this.fanService
+					.getCharacteristic(Characteristic.On)
+					.on('get', this.getPowerState.bind(this))
+					.on('set', this.setPowerState.bind(this));						
+					break;
+				case "realtime":				
+					this.fanService
+					.getCharacteristic(Characteristic.On)
+					.on('get', function(callback) {callback(null, that.state)})
+					.on('set', this.setPowerState.bind(this));
+					break;
+				default	:	
+					this.fanService
+					.getCharacteristic(Characteristic.On)	
+					.on('set', this.setPowerState.bind(this));					
+					break;}
+					return [this.fanService];
 
 		}
 	}
