@@ -22,6 +22,8 @@ module.exports = function(homebridge){
 		this.off_url                = config["off_url"];
 		this.off_body               = config["off_body"];
 		this.status_url             = config["status_url"];
+		this.setstatus_url          = config["setstatus_url"];
+		this.temperature_url        = config["temperature_url"];
 		this.brightness_url         = config["brightness_url"];
 		this.brightnesslvl_url      = config["brightnesslvl_url"];
 		this.http_method            = config["http_method"] 	  	 	|| "GET";;
@@ -51,27 +53,41 @@ module.exports = function(homebridge){
 						done(null, body);
 					}
 				})
-			}, {longpolling:true,interval:300,longpollEventName:"statuspoll"});
+			}, {longpolling:true,interval:5000,longpollEventName:"statuspoll"});
 
-		statusemitter.on("statuspoll", function(data) {       
-			var binaryState = parseInt(data);
-			that.state = binaryState > 0;
-			that.log(that.service, "received power",that.status_url, "state is currently", binaryState); 
-			// switch used to easily add additonal services
-			switch (that.service) {
-				case "Switch":
-					if (that.switchService ) {
-						that.switchService .getCharacteristic(Characteristic.On)
-						.setValue(that.state);
-					}
-					break;
-				case "Light":
-					if (that.lightbulbService) {
-						that.lightbulbService.getCharacteristic(Characteristic.On)
-						.setValue(that.state);
-					}		
-					break;			
-				}        
+			statusemitter.on("statuspoll", function(data) {       
+				var binaryState = parseInt(data);
+				that.state = binaryState > 0;
+				that.log(that.service, "received power",that.status_url, "state is currently", binaryState); 
+				// switch used to easily add additonal services
+				switch (that.service) {
+					case "Switch":
+						if (that.switchService ) {
+							that.switchService .getCharacteristic(Characteristic.On)
+							.setValue(that.state);
+						}
+						break;
+
+					case "Light":
+						if (that.lightbulbService) {
+							that.lightbulbService.getCharacteristic(Characteristic.On)
+							.setValue(that.state);
+						}		
+						break;	
+
+					case "Temperature":
+						if (that.lightbulbService) {
+							that.lightbulbService.getCharacteristic(Characteristic.CurrentTemperature)
+							.setValue(that.state);
+						}						
+
+					case "Thermostat":
+						if (that.lightbulbService) {
+							that.lightbulbService.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+							.setValue(that.CurrentHeatingCoolingState);
+						}		
+						break;			
+					}        
 		});
 
 	}
@@ -122,7 +138,7 @@ module.exports = function(homebridge){
 
 	getState: function (callback) {
 		var ops = {
-		 uri:    this.status_url,
+		 uri:    this.temperature_url,
 		 method: this.http_method,
 		 timeout: this.timeout
 		};
@@ -164,7 +180,10 @@ module.exports = function(homebridge){
 			url = this.on_url;
 			body = this.on_body;
 			this.log("Setting power state to on");
-		} else {
+		} 
+
+
+		else {
 			url = this.off_url;
 			body = this.off_body;
 			this.log("Setting power state to off");
@@ -203,6 +222,107 @@ module.exports = function(homebridge){
 		}
 		}.bind(this));
 	},
+
+    getHeatingCoolingState: function(callback) {
+		if (!this.status_url) {
+			this.log.warn("Ignoring request; No status url defined.");
+			callback(new Error("No status url defined."));
+			return;
+		}
+	
+		var url = this.status_url;
+		this.log("Getting power state");
+
+		this.httpRequest(url, "", "GET", this.username, this.password, this.sendimmediately, function(error, response, responseBody) {
+		if (error) {
+			this.log('HTTP get power function failed: %s', error.message);
+			callback(error);
+		} else {
+			var binaryState = parseInt(responseBody);
+			var powerOn = binaryState > 0;
+			this.log("Thermostat current mode is %s", binaryState);
+			callback(null, binaryState);
+		}
+		}.bind(this));
+	},
+
+
+	setHeatingCoolingState: function(powerOn, callback) {
+		var url;
+		var body;
+		
+		powerOn = parseInt(powerOn)
+		
+		if (!isNaN(powerOn)) {
+
+
+			
+
+
+
+			if (powerOn) {
+				url = this.on_url;
+				body = this.on_body;
+				this.log("Setting power state to %s", powerOn);
+			}
+
+			else {
+				url = this.off_url;
+				body = this.off_body;
+				this.log("Setting power state to off : %s", powerOn);
+			}
+
+			
+
+
+			this.httpRequest(url, body, this.http_method, this.username, this.password, this.sendimmediately, function(error, response, responseBody) {
+			if (error) {
+			this.log('HTTP set power function failed: %s', error.message);
+			callback(error);
+			} else {
+			url = this.setstatus_url;
+			this.httpRequest(url + '/' + powerOn, body, this.http_method, this.username, this.password, this.sendimmediately, function(error, response, responseBody) {});
+			this.log('HTTP set power function succeeded!');
+			if (callback) {callback();}			
+			}
+			}.bind(this));
+
+
+		}
+
+	},
+
+	setHeatingCoolingStateBCK: function(powerOn, callback) {
+		var url;
+		var body;
+		
+		if (!this.on_url || !this.off_url) {
+				this.log.warn("Ignoring request; No power url defined.");
+				callback(new Error("No power url defined."));
+				return;
+		}
+		
+		if (powerOn) {
+			url = this.on_url;
+			body = this.on_body;
+			this.log("Setting power state to on");
+		} else {
+			url = this.off_url;
+			body = this.off_body;
+			this.log("Setting power state to off");
+		}
+		
+		this.httpRequest(url, body, this.http_method, this.username, this.password, this.sendimmediately, function(error, response, responseBody) {
+			if (error) {
+			this.log('HTTP set power function failed: %s', error.message);
+			callback(error);
+			} else {
+			this.log('HTTP set power function succeeded!');
+			callback();
+			}
+		}.bind(this));
+	},
+
 
 	getBrightness: function(callback) {
 		if (!this.brightnesslvl_url) {
@@ -384,6 +504,60 @@ module.exports = function(homebridge){
 					.on('set', this.setPowerState.bind(this));
 					break;}
 					return [this.outletService];
+		
+		case "Thermostat": 
+			this.thermostatService = new Service.Thermostat(this.name);
+			switch (this.switchHandling) {	
+				//Power Polling
+				case "yes":
+					this.thermostatService
+						.getCharacteristic(Characteristic.CurrentTemperature)
+						.on('get', this.getState.bind(this));					
+					this.thermostatService
+						.getCharacteristic(Characteristic.TargetTemperature)
+						.on('get', this.getState.bind(this));
+					this.thermostatService
+						.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+						.on('get', this.getHeatingCoolingState.bind(this))
+					this.thermostatService
+						.getCharacteristic(Characteristic.TargetHeatingCoolingState)
+						.on('set', this.setHeatingCoolingState.bind(this))
+						.on('change', this.setHeatingCoolingState.bind(this), this.setHeatingCoolingState.bind(this));
+					break;
+				case "realtime":
+					this.thermostatService
+						.getCharacteristic(Characteristic.CurrentTemperature)
+						.on('get', this.getState.bind(this));
+					this.thermostatService
+						.getCharacteristic(Characteristic.TargetTemperature)
+						.on('get', this.getState.bind(this));						
+					this.thermostatService
+						.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+						.on('get', function(callback) {callback(null, that.CurrentHeatingCoolingState)})
+					this.thermostatService
+						.getCharacteristic(Characteristic.TargetHeatingCoolingState)
+						.on('set', this.setHeatingCoolingState.bind(this))
+						.on('change', this.setHeatingCoolingState.bind(this), this.setHeatingCoolingState.bind(this));
+					break;
+				default	:
+					this.thermostatService
+						.getCharacteristic(Characteristic.CurrentTemperature)
+						.on('get', this.getState.bind(this));
+					this.thermostatService
+						.getCharacteristic(Characteristic.TargetTemperature)
+						.on('get', this.getState.bind(this));						
+					this.thermostatService
+						.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+						.on('get', this.getHeatingCoolingState.bind(this))
+						this.thermostatService
+						.getCharacteristic(Characteristic.TargetHeatingCoolingState)
+						.on('set', this.setHeatingCoolingState.bind(this))
+						.on('change', this.setHeatingCoolingState.bind(this), this.setHeatingCoolingState.bind(this));
+					break;}
+					return [this.thermostatService];
+
+
+
 
 		}
 	}
