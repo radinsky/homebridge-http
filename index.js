@@ -25,6 +25,9 @@ module.exports = function(homebridge){
 		this.setstatus_url          = config["setstatus_url"];
 		this.temperature_url        = config["temperature_url"];
 		this.brightness_url         = config["brightness_url"];
+		this.brightness_urlup       = config["brightness_urlup"];
+		this.brightness_urldown     = config["brightness_urldown"];
+
 		this.brightnesslvl_url      = config["brightnesslvl_url"];
 		this.http_method            = config["http_method"] 	  	 	|| "GET";;
 		this.http_brightness_method = config["http_brightness_method"]  || this.http_method;
@@ -74,19 +77,38 @@ module.exports = function(homebridge){
 							.setValue(that.state);
 						}		
 						break;	
+					case "Fan":
+						if (that.fanService) {
+							that.fanService.getCharacteristic(Characteristic.On)
+							.setValue(that.state);
+						}		
+						break;	
+					case "Outlet":
+						if (that.outletService) {
+							that.outletService.getCharacteristic(Characteristic.On)
+							.setValue(that.state);
+						}		
+						break;	
 
 					case "Temperature":
-						if (that.lightbulbService) {
-							that.lightbulbService.getCharacteristic(Characteristic.CurrentTemperature)
+						if (that.temperatureService) {
+							that.temperatureService.getCharacteristic(Characteristic.CurrentTemperature)
 							.setValue(that.state);
-						}						
+						}
+						break;						
 
 					case "Thermostat":
-						if (that.lightbulbService) {
-							that.lightbulbService.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+						if (that.thermostatService) {
+							that.thermostatService.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
 							.setValue(that.CurrentHeatingCoolingState);
 						}		
 						break;			
+					case "StatelessProgrammableSwitch":
+						if (that.serviceStatelessProgrammableSwitch) {
+							that.serviceStatelessProgrammableSwitch.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+							.setValue(that.ProgrammableSwitchEvent);
+						}		
+						break;									
 					}        
 		});
 
@@ -136,7 +158,7 @@ module.exports = function(homebridge){
 		})
 	},
 
-	getState: function (callback) {
+	getTemperature: function (callback) {
 		var ops = {
 		 uri:    this.temperature_url,
 		 method: this.http_method,
@@ -255,11 +277,6 @@ module.exports = function(homebridge){
 		
 		if (!isNaN(powerOn)) {
 
-
-			
-
-
-
 			if (powerOn) {
 				url = this.on_url;
 				body = this.on_body;
@@ -292,38 +309,6 @@ module.exports = function(homebridge){
 
 	},
 
-	setHeatingCoolingStateBCK: function(powerOn, callback) {
-		var url;
-		var body;
-		
-		if (!this.on_url || !this.off_url) {
-				this.log.warn("Ignoring request; No power url defined.");
-				callback(new Error("No power url defined."));
-				return;
-		}
-		
-		if (powerOn) {
-			url = this.on_url;
-			body = this.on_body;
-			this.log("Setting power state to on");
-		} else {
-			url = this.off_url;
-			body = this.off_body;
-			this.log("Setting power state to off");
-		}
-		
-		this.httpRequest(url, body, this.http_method, this.username, this.password, this.sendimmediately, function(error, response, responseBody) {
-			if (error) {
-			this.log('HTTP set power function failed: %s', error.message);
-			callback(error);
-			} else {
-			this.log('HTTP set power function succeeded!');
-			callback();
-			}
-		}.bind(this));
-	},
-
-
 	getBrightness: function(callback) {
 		if (!this.brightnesslvl_url) {
 			this.log.warn("Ignoring request; No brightness level url defined.");
@@ -347,14 +332,18 @@ module.exports = function(homebridge){
 	  },
 
 	setBrightness: function(level, callback) {
-		
 		if (!this.brightness_url) {
 			this.log.warn("Ignoring request; No brightness url defined.");
 			callback(new Error("No brightness url defined."));
 			return;
 		}    
-	
-		var url = this.brightness_url.replace("%b", level)
+		
+		if (parseInt(level) > 50) {
+			var url = this.brightness_urlup; }
+		else {
+			var url = this.brightness_urldown; 
+		}
+
 	
 		this.log("Setting brightness to %s", level);
 	
@@ -432,8 +421,10 @@ module.exports = function(homebridge){
 				.on('set', this.setPowerState.bind(this));
 				break;
 			}
+		
 			// Brightness Polling 
 			if (this.brightnessHandling == "realtime") {
+				this.log("REALTIME");
 				this.lightbulbService 
 				.addCharacteristic(new Characteristic.Brightness())
 				.on('get', function(callback) {callback(null, that.currentlevel)})
@@ -441,18 +432,42 @@ module.exports = function(homebridge){
 			} else if (this.brightnessHandling == "yes") {
 				this.lightbulbService
 				.addCharacteristic(new Characteristic.Brightness())
-				.on('get', this.getBrightness.bind(this))
+			//	.on('get', this.getBrightness.bind(this))
 				.on('set', this.setBrightness.bind(this));
 			}
 	
 			return [informationService, this.lightbulbService];
 			break;		
 
+		case "StatelessProgrammableSwitch":	
+			this.statelessProgrammableSwitchService = new Service.StatelessProgrammableSwitch(this.name);
+			switch (this.switchHandling) {
+			//Power Polling
+			case "yes" :
+				this.statelessProgrammableSwitchService
+				.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+				.on('get', this.getPowerState.bind(this))
+			//	.on('set', this.setPowerState.bind(this));
+				break;
+			case "realtime":
+				this.statelessProgrammableSwitchService
+				.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+				//.on('get', function(callback) {callback(null, that.state)})
+				//.on('set', this.setPowerState.bind(this));
+				break;
+			default:		
+				this.statelessProgrammableSwitchService
+				.getCharacteristic(Characteristic.ProgrammableSwitchEvent)	
+				//.on('set', this.setPowerState.bind(this));
+				break;
+			}	
+
+
 		case "Temperature":
 			this.temperatureService = new Service.TemperatureSensor(this.name);
 			this.temperatureService
 				.getCharacteristic(Characteristic.CurrentTemperature)
-				.on('get', this.getState.bind(this))
+				.on('get', this.getTemperature.bind(this))
 				.setProps({
 					 minValue: this.minTemperature,
 					 maxValue: this.maxTemperature
@@ -512,10 +527,10 @@ module.exports = function(homebridge){
 				case "yes":
 					this.thermostatService
 						.getCharacteristic(Characteristic.CurrentTemperature)
-						.on('get', this.getState.bind(this));					
+						.on('get', this.getTemperature.bind(this));					
 					this.thermostatService
 						.getCharacteristic(Characteristic.TargetTemperature)
-						.on('get', this.getState.bind(this));
+						.on('get', this.getTemperature.bind(this));
 					this.thermostatService
 						.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
 						.on('get', this.getHeatingCoolingState.bind(this))
@@ -527,10 +542,10 @@ module.exports = function(homebridge){
 				case "realtime":
 					this.thermostatService
 						.getCharacteristic(Characteristic.CurrentTemperature)
-						.on('get', this.getState.bind(this));
+						.on('get', this.getTemperature.bind(this));
 					this.thermostatService
 						.getCharacteristic(Characteristic.TargetTemperature)
-						.on('get', this.getState.bind(this));						
+						.on('get', this.getTemperature.bind(this));						
 					this.thermostatService
 						.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
 						.on('get', function(callback) {callback(null, that.CurrentHeatingCoolingState)})
@@ -542,10 +557,10 @@ module.exports = function(homebridge){
 				default	:
 					this.thermostatService
 						.getCharacteristic(Characteristic.CurrentTemperature)
-						.on('get', this.getState.bind(this));
+						.on('get', this.getTemperature.bind(this));
 					this.thermostatService
 						.getCharacteristic(Characteristic.TargetTemperature)
-						.on('get', this.getState.bind(this));						
+						.on('get', this.getTemperature.bind(this));						
 					this.thermostatService
 						.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
 						.on('get', this.getHeatingCoolingState.bind(this))
