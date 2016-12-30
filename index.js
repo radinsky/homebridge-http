@@ -90,9 +90,30 @@ module.exports = function(homebridge){
 						}		
 						break;	
 
-					case "Temperature":
+					case "TemperatureSensor":
 						if (that.temperatureService) {
 							that.temperatureService.getCharacteristic(Characteristic.CurrentTemperature)
+							.setValue(that.state);
+						}
+						break;	
+
+					case "HumiditySensor":
+						if (that.humidityService) {
+							that.humidityService.getCharacteristic(Characteristic.CurrentTemperature)
+							.setValue(that.state);
+						}
+						break;			
+
+					case "AirQualitySensor":
+						if (that.airqualityService) {
+							that.airqualityService.getCharacteristic(Characteristic.AirQuality)
+							.setValue(that.state);
+						}
+						break;						
+
+					case "LightsSensor":
+						if (that.lightsService) {
+							that.lightsService.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
 							.setValue(that.state);
 						}
 						break;						
@@ -174,6 +195,104 @@ module.exports = function(homebridge){
 				try {
 					value = JSON.parse(body).temperature;
 					if (value < this.minTemperature || value > this.maxTemperature || isNaN(value)) {
+						throw "Invalid value received";
+					}
+					this.log('HTTP successful response: ' + body);
+				} 
+				catch (parseErr) {
+					this.log('Error processing received information: ' + parseErr.message);
+					error = parseErr;
+					}
+			}
+		callback(error, value);
+		});
+		},
+
+
+	getHumidity: function (callback) {
+		var ops = {
+		 uri:    this.status_url,
+		 method: this.http_method,
+		 timeout: this.timeout
+		};
+		this.log('Requesting humidity on "' + ops.uri + '", method ' + ops.method);
+		request(ops, (error, res, body) => {
+			var value = null;
+			if (error) {
+				this.log('HTTP bad response (' + ops.uri + '): ' + error.message);
+				} 
+			else {
+				try {
+					value = JSON.parse(body).humidity;
+					if (isNaN(value)) {
+						throw "Invalid value received";
+					}
+					this.log('HTTP successful response: ' + body);
+				} 
+				catch (parseErr) {
+					this.log('Error processing received information: ' + parseErr.message);
+					error = parseErr;
+					}
+			}
+		callback(error, value);
+		});
+		},
+
+	getLights: function (callback) {
+		var ops = {
+		 uri:    this.status_url,
+		 method: this.http_method,
+		 timeout: this.timeout
+		};
+		this.log('Requesting lights state on "' + ops.uri + '", method ' + ops.method);
+		request(ops, (error, res, body) => {
+			var value = null;
+			if (error) {
+				this.log('HTTP bad response (' + ops.uri + '): ' + error.message);
+				} 
+			else {
+				try {
+					value = JSON.parse(body).light;
+					this.log(value);
+					if (value == "dark") {value = 1}
+					if (value == "normal") {value = 50}
+					if (value == "hight") {value = 100}
+					if (isNaN(value)) {
+						throw "Invalid value received";
+					}
+					this.log('HTTP successful response: ' + body);
+				} 
+				catch (parseErr) {
+					this.log('Error processing received information: ' + parseErr.message);
+					error = parseErr;
+					}
+			}
+		callback(error, value);
+		});
+		},
+
+	getAirQuality: function (callback) {
+		var ops = {
+		 uri:    this.status_url,
+		 method: this.http_method,
+		 timeout: this.timeout
+		};
+		this.log('Requesting air quality state on "' + ops.uri + '", method ' + ops.method);
+		request(ops, (error, res, body) => {
+			var value = null;
+			if (error) {
+				this.log('HTTP bad response (' + ops.uri + '): ' + error.message);
+				} 
+			else {
+				try {
+					value = JSON.parse(body).air_quality;
+					if (value == "unknown") {value = 0}
+					if (value == "excellent") {value = 1}
+					if (value == "good") {value = 2}
+					if (value == "fair") {value = 3}
+					if (value == "inferior") {value = 4}
+					if (value == "poor") {value = 5}
+					if (isNaN(value)) {
 						throw "Invalid value received";
 					}
 					this.log('HTTP successful response: ' + body);
@@ -463,7 +582,7 @@ module.exports = function(homebridge){
 			}	
 
 
-		case "Temperature":
+		case "TemperatureSensor":
 			this.temperatureService = new Service.TemperatureSensor(this.name);
 			this.temperatureService
 				.getCharacteristic(Characteristic.CurrentTemperature)
@@ -473,6 +592,28 @@ module.exports = function(homebridge){
 					 maxValue: this.maxTemperature
 				});
 			return [this.temperatureService];
+
+		case "HumiditySensor":
+			this.humidityService = new Service.HumiditySensor(this.name);
+			this.humidityService
+				.getCharacteristic(Characteristic.CurrentRelativeHumidity)
+				.on('get', this.getHumidity.bind(this))
+			return [this.humidityService];
+
+		case "AirQualitySensor":
+			this.airqualityService = new Service.AirQualitySensor(this.name);
+			this.airqualityService
+				.getCharacteristic(Characteristic.AirQuality)
+				.on('get', this.getAirQuality.bind(this))
+			return [this.airqualityService];
+
+		case "LightsSensor":
+			this.lightsService = new Service.LightSensor(this.name);
+			this.lightsService
+				.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
+				.on('get', this.getLights.bind(this))
+			return [this.lightsService];
+
 
 		case "Fan": 
 			this.fanService = new Service.Fan(this.name);
